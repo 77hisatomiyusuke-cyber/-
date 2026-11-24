@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>狐假虎威 - 古代中国風 オンライン盤面戦術絵巻</title>
+<!-- P2Pオンライン対戦用ライブラリ（サーバー不要で直接通信可能） -->
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;800&display=swap');
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+  }
+
+  body {
+    background-color: #14110f;
+    background-image:
+      radial-gradient(circle at 50% 15%, rgba(212, 175, 55, 0.14), transparent 60%),
+      radial-gradient(circle at 15% 85%, rgba(120, 53, 15, 0.2), transparent 55%),
+      linear-gradient(180deg, #1c1917 0%, #0c0a09 100%);
+    color: #f5efe6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 18px;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  .ink-mountain-bg {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.18;
+    z-index: 0;
+    background: url('bg.jpg') center/cover no-repeat;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 640px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .header-scroll {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-bottom: 6px;
+  }
+  .hanko-seal {
+    border: 2px solid #b91c1c;
+    color: #ef4444;
+    background: rgba(127, 29, 29, 0.25);
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.15;
+    padding: 4px 5px;
+    letter-spacing: 1px;
+    box-shadow: 0 0 8px rgba(185, 28, 28, 0.4);
+  }
+  h1 {
+    font-size: 32px;
+    font-weight: 800;
+    color: #e6c27a;
+    letter-spacing: 8px;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9), 0 0 20px rgba(212, 175, 55, 0.35);
+  }
+  .subtitle {
+    font-size: 13px;
+    color: #a8a29e;
+    letter-spacing: 3px;
+    margin-bottom: 10px;
+  }
+
+  .online-bar {
+    width: 100%;
+    background: rgba(20, 17, 15, 0.92);
+    border: 1px solid #856832;
+    border-radius: 6px;
+    padding: 8px 14px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .online-badge {
+    font-weight: 800;
+    color: #86efac;
+  }
+
+  .status-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: linear-gradient(135deg, #292524 0%, #1c1917 100%);
+    border: 2px solid #856832;
+    box-shadow: inset 0 0 15px rgba(0,0,0,0.7), 0 4px 12px rgba(0,0,0,0.5);
+    border-radius: 6px;
+    padding: 10px 18px;
+    margin-bottom: 10px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .turn-badge {
+    font-size: 15px;
+    font-weight: 800;
+    padding: 5px 14px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+    border: 1px solid rgba(255,255,255,0.25);
+  }
+  .p1-turn {
+    background: linear-gradient(180deg, #991b1b, #7f1d1d);
+    color: #fef2f2;
+    box-shadow: 0 0 10px rgba(185, 28, 28, 0.5);
+  }
+  .p2-turn {
+    background: linear-gradient(180deg, #1e40af, #1e3a8a);
+    color: #eff6ff;
+    box-shadow: 0 0 10px rgba(30, 64, 175, 0.5);
+  }
+  .turn-counter {
+    font-weight: 800;
+    font-size: 15px;
+    color: #e6c27a;
+    letter-spacing: 1px;
+  }
+  .phase-info {
+    font-size: 13px;
+    font-weight: 800;
+    color: #fcd34d;
+  }
+
+  .fort-panel {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    width: 100%;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .fort-box {
+    background: rgba(28, 25, 23, 0.92);
+    border: 1px solid #a16207;
+    border-left: 4px solid #d97706;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  .fort-box.captured-p1 {
+    border-color: #ef4444;
+    border-left-color: #dc2626;
+    background: rgba(127, 29, 29, 0.3);
+  }
+  .fort-box.captured-p2 {
+    border-color: #60a5fa;
+    border-left-color: #2563eb;
+    background: rgba(30, 58, 138, 0.3);
+  }
+  .fort-title {
+    font-weight: 800;
+    color: #fbbf24;
+    margin-bottom: 2px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .alert-box {
+    width: 100%;
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 800;
+    text-align: center;
+    margin-bottom: 8px;
+    display: none;
+    letter-spacing: 0.5px;
+  }
+  .radar-alert {
+    background: rgba(88, 28, 135, 0.35);
+    border: 1px solid #c084fc;
+    color: #f3e8ff;
+  }
+  .spawn-alert {
+    background: rgba(12, 74, 110, 0.4);
+    border: 1px solid #38bdf8;
+    color: #e0f2fe;
+  }
+  .battle-log {
+    background: rgba(146, 64, 14, 0.35);
+    border: 1px solid #f59e0b;
+    color: #fef3c7;
+  }
+
+  .message {
+    font-size: 14px;
+    font-weight: 800;
+    color: #fde68a;
+    margin-bottom: 10px;
+    min-height: 22px;
+    text-align: center;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+  }
+
+  .board-wrapper {
+    background: linear-gradient(145deg, #3f2e1d, #261b10);
+    padding: 16px;
+    border-radius: 8px;
+    border: 3px solid #9a7b3e;
+    box-shadow:
+      0 14px 32px rgba(0, 0, 0, 0.85),
+      inset 0 0 18px rgba(0, 0, 0, 0.8);
+    margin-bottom: 14px;
+    position: relative;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 28px repeat(10, 48px);
+    grid-template-rows: 28px repeat(10, 48px);
+    gap: 2px;
+    background: #443627;
+    padding: 4px;
+    border: 1px solid #785c2a;
+  }
+  .label-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 800;
+    color: #d6c5a9;
+    background: #292017;
+  }
+
+  .cell {
+    width: 48px;
+    height: 48px;
+    background: radial-gradient(circle, #dfd3be 0%, #cbbba0 100%);
+    color: #1c1917;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: filter 0.15s, transform 0.1s;
+    user-select: none;
+    border: 1px solid rgba(68, 54, 39, 0.35);
+  }
+  .cell:hover {
+    filter: brightness(1.07);
+  }
+  .cell.fort-cell {
+    background: radial-gradient(circle, #fef08a 0%, #d97706 100%);
+    border: 2px solid #92400e;
+  }
+  .cell.fort-invincible {
+    box-shadow: 0 0 12px #38bdf8, inset 0 0 10px #0284c7;
+    border: 2px solid #0284c7;
+  }
+  .cell.selected {
+    outline: 3px solid #dc2626;
+    z-index: 2;
+    filter: brightness(1.1);
+  }
+  .cell.movable {
+    background: radial-gradient(circle, #bbf7d0 0%, #4ade80 100%);
+    border: 2px solid #15803d;
+  }
+  .cell.spawnable {
+    background: radial-gradient(circle, #bae6fd 0%, #38bdf8 100%);
+    border: 2px dashed #0369a1;
+  }
+  .cell.buffed {
+    box-shadow: inset 0 0 12px #d97706, 0 0 8px #f59e0b;
+    border: 2px solid #b45309;
+  }
+  .cell.revealed-tiger {
+    background: radial-gradient(circle, #e9d5ff 0%, #a855f7 100%);
+    border: 2px dashed #6b21a8;
+  }
+
+  .fort-bg-label {
+    position: absolute;
+    top: 1px;
+    left: 2px;
+    font-size: 10px;
+    font-weight: 800;
+    color: #78350f;
+  }
+  .shield-badge {
+    position: absolute;
+    top: 1px;
+    right: 2px;
+    font-size: 9px;
+    background: #0369a1;
+    color: #fff;
+    padding: 0 3px;
+    border-radius: 2px;
+    font-weight: bold;
+  }
+  .kill-badge {
+    position: absolute;
+    bottom: 1px;
+    right: 2px;
+    font-size: 9px;
+    background: #78350f;
+    color: #fde68a;
+    padding: 0 3px;
+    border-radius: 2px;
+    font-weight: bold;
+    border: 1px solid #f59e0b;
+  }
+
+  .token {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 3px 5px rgba(0,0,0,0.55), inset 0 1px 2px rgba(255,255,255,0.35);
+    position: relative;
+  }
+  .token-p1 {
+    background: radial-gradient(circle at 30% 30%, #b91c1c, #7f1d1d);
+    border: 2px solid #fca5a5;
+    color: #fef2f2;
+  }
+  .token-p2 {
+    background: radial-gradient(circle at 30% 30%, #1d4ed8, #1e3a8a);
+    border: 2px solid #93c5fd;
+    color: #eff6ff;
+  }
+  .token-tiger {
+    border-color: #facc15;
+    box-shadow: 0 0 8px rgba(250, 204, 21, 0.7), 0 3px 5px rgba(0,0,0,0.6);
+  }
+  .token-evolved {
+    border: 2px solid #fde047;
+    box-shadow: 0 0 12px #facc15, inset 0 0 6px rgba(250, 204, 21, 0.8);
+  }
+  .token-kanji {
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0;
+  }
+  .token-sub {
+    font-size: 8px;
+    line-height: 1;
+    margin-top: 1px;
+    opacity: 0.9;
+  }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  button {
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 800;
+    border: 1px solid #fde047;
+    border-radius: 4px;
+    cursor: pointer;
+    background: linear-gradient(180deg, #b45309, #78350f);
+    color: #fef3c7;
+    letter-spacing: 1px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+    transition: transform 0.1s, filter 0.15s;
+  }
+  button:hover {
+    filter: brightness(1.15);
+    transform: translateY(-1px);
+  }
+  button.stay-btn {
+    background: linear-gradient(180deg, #0369a1, #0c4a6e);
+    border-color: #7dd3fc;
+    color: #e0f2fe;
+    display: none;
+  }
+  button.spawn-btn {
+    background: linear-gradient(180deg, #15803d, #14532d);
+    border-color: #86efac;
+    color: #dcfce7;
+    display: none;
+  }
+  button.blue-btn {
+    background: linear-gradient(180deg, #1d4ed8, #1e3a8a);
+    border-color: #93c5fd;
+    color: #eff6ff;
+  }
+  button.red-btn {
+    background: linear-gradient(180deg, #b91c1c, #7f1d1d);
+    border-color: #fca5a5;
+    color: #fef2f2;
+  }
+
+  .rules {
+    width: 100%;
+    background: rgba(28, 25, 23, 0.92);
+    border: 1px solid #785c2a;
+    border-radius: 6px;
+    padding: 14px 16px;
+    font-size: 12px;
+    line-height: 1.8;
+    color: #d6d3d1;
+  }
+  .rules strong { color: #fbbf24; }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(28, 25, 23, 0.97), rgba(12, 10, 9, 0.99));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    text-align: center;
+    padding: 20px;
+    overflow-y: auto;
+  }
+  .title-frame {
+    border: 3px double #b48a3e;
+    padding: 28px 24px;
+    max-width: 540px;
+    width: 100%;
+    background: rgba(20, 17, 15, 0.94);
+    box-shadow: 0 0 40px rgba(0,0,0,0.9), inset 0 0 20px rgba(180, 138, 62, 0.2);
+  }
+  .overlay h2 {
+    font-size: 34px;
+    margin-bottom: 8px;
+    color: #e6c27a;
+    letter-spacing: 10px;
+  }
+  .overlay .story-text {
+    font-size: 13px;
+    color: #d6d3d1;
+    line-height: 1.8;
+    margin: 14px 0 20px;
+  }
+
+  .lobby-box {
+    background: rgba(38, 33, 29, 0.9);
+    border: 1px solid #856832;
+    border-radius: 6px;
+    padding: 14px;
+    margin-bottom: 14px;
+    text-align: left;
+  }
+  .lobby-box h3 {
+    font-size: 15px;
+    color: #fbbf24;
+    margin-bottom: 8px;
+  }
+  .room-id-display {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+  }
+  input[type="text"] {
+    flex: 1;
+    padding: 9px 12px;
+    font-size: 14px;
+    font-weight: 800;
+    background: #14110f;
+    border: 1px solid #a16207;
+    color: #fef3c7;
+    border-radius: 4px;
+    letter-spacing: 1px;
+  }
+  .lobby-status {
+    font-size: 12px;
+    color: #fde047;
+    margin-top: 8px;
+    font-weight: 800;
+    min-height: 18px;
+  }
+</style>
+</head>
+<body>
+
+  <div class="ink-mountain-bg"></div>
+
+  <!-- タイトル＆オンライン対戦ロビー画面 -->
+  <div id="title-overlay" class="overlay">
+    <div class="title-frame">
+      <div style="display:inline-block; border:2px solid #dc2626; color:#ef4444; padding:2px 8px; font-weight:800; font-size:12px; margin-bottom:10px;">戦国策・楚策</div>
+      <h2>狐假虎威</h2>
+      <div style="color:#a8a29e; font-size:13px; letter-spacing:4px;">― 虎の威を借る狐 盤面兵法絵巻 ―</div>
+      <p class="story-text">
+        霧に潜む<strong>虎</strong>の威光を借りて敵陣を打ち砕き、<br>
+        四つの要衝の<strong>砦（0A・9J・4E・5F）</strong>から<strong>二箇所</strong>を制圧せよ。
+      </p>
+
+      <!-- オンライン対戦：部屋を作る -->
+      <div class="lobby-box">
+        <h3>🌐 オンライン対戦：部屋を作る（紅軍・先攻）</h3>
+        <button class="red-btn" onclick="createOnlineRoom()" style="width:100%;">合言葉（ルームID）を発行する</button>
+        <div id="host-room-area" style="display:none;">
+          <div class="room-id-display">
+            <input type="text" id="my-room-id" readonly value="発行中...">
+            <button onclick="copyRoomId()" style="padding:8px 12px; font-size:12px;">📋 コピー</button>
+          </div>
+          <div id="host-status" class="lobby-status">対戦相手の参加を待っています...</div>
+        </div>
+      </div>
+
+      <!-- オンライン対戦：部屋に参加する -->
+      <div class="lobby-box">
+        <h3>🚪 オンライン対戦：部屋に参加（藍軍・後攻）</h3>
+        <div class="room-id-display">
+          <input type="text" id="join-room-id" placeholder="相手から届いた合言葉を入力">
+          <button class="blue-btn" onclick="joinOnlineRoom()" style="padding:9px 16px;">参加する</button>
+        </div>
+        <div id="join-status" class="lobby-status"></div>
+      </div>
+
+      <!-- オフライン2人対戦 -->
+      <div style="margin-top:10px;">
+        <button onclick="startLocalGame()" style="width:100%; font-size:13px; padding:10px;">👥 同じ端末で二人対戦（オフライン）</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- オフライン用・プレイヤー交代画面 -->
+  <div id="switch-overlay" class="overlay" style="display:none;">
+    <div class="title-frame">
+      <h2 id="overlay-title" style="font-size:24px; letter-spacing:3px;">プレイヤー2 の手番</h2>
+      <p id="overlay-sub" class="story-text">相手に見えぬよう陣を交代し、準備が整ったら盤面を開いてください。</p>
+      <button onclick="closeOverlay()">盤面を開く</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="header-scroll">
+      <div class="hanko-seal">朱<br>印</div>
+      <h1>狐假虎威</h1>
+      <div class="hanko-seal">兵<br>法</div>
+    </div>
+    <div class="subtitle">古代中国・隠密盤面戦術絵巻</div>
+
+    <div class="online-bar">
+      <span id="mode-indicator" class="online-badge">モード：未選択</span>
+      <span id="my-role-indicator" style="color:#fcd34d; font-weight:800;"></span>
+    </div>
+
+    <div class="status-panel">
+      <div id="turn-badge" class="turn-badge p1-turn">🔴 紅軍（プレイヤー1）</div>
+      <div id="turn-counter" class="turn-counter">第 1 刻</div>
+      <div id="phase-info" class="phase-info">壱：狐 または 熊 を進軍</div>
+    </div>
+
+    <div class="fort-panel">
+      <div id="fort-box-0A" class="fort-box">
+        <div class="fort-title"><span>🏯 砦【0A】</span><span id="fort-0A-shield"></span></div>
+        <div id="fort-0A-status">無主（狐＋熊で制圧）</div>
+      </div>
+      <div id="fort-box-9J" class="fort-box">
+        <div class="fort-title"><span>🏯 砦【9J】</span><span id="fort-9J-shield"></span></div>
+        <div id="fort-9J-status">無主（狐＋熊で制圧）</div>
+      </div>
+      <div id="fort-box-4E" class="fort-box">
+        <div class="fort-title"><span>🏯 中央砦【4E】</span><span id="fort-4E-shield"></span></div>
+        <div id="fort-4E-status">無主（狐＋熊で制圧）</div>
+      </div>
+      <div id="fort-box-5F" class="fort-box">
+        <div class="fort-title"><span>🏯 中央砦【5F】</span><span id="fort-5F-shield"></span></div>
+        <div id="fort-5F-status">無主（狐＋熊で制圧）</div>
+      </div>
+    </div>
+
+    <div id="radar-alert" class="alert-box radar-alert">👁️ 【三刻ごとの斥候報告】霧が晴れ、敵の「虎」の居場所が判明！</div>
+    <div id="spawn-alert" class="alert-box spawn-alert">🦊 【六刻ごとの援軍到来】本陣の空き地に新たな「狐」を一匹配置可能！</div>
+    <div id="battle-log" class="alert-box battle-log"></div>
+
+    <div id="message" class="message">進軍させる「狐（二マス）」または「熊（一マス）」を選んでください</div>
+
+    <div class="board-wrapper">
+      <div id="grid" class="grid"></div>
+    </div>
+
+    <div class="controls">
+      <button id="spawn-btn" class="spawn-btn" onclick="toggleSpawnMode()">🦊 援軍の狐を配置する（残り一匹）</button>
+      <button id="stay-btn" class="stay-btn" onclick="skipTigerMove()">🐯 虎を動かさず手番を終える</button>
+      <button onclick="resetGame()">最初からやり直す</button>
+    </div>
+
+    <div class="rules">
+      <strong>【兵法書・勝利の掟】</strong><br>
+      ・<strong>初期布陣</strong>：紅軍は 8B(🐯虎), 4A・9F・6D(🐻熊), 7A・7C・9C(🦊狐) ／ 藍軍は点対称の 1I(🐯虎), 5J・0E・3G(🐻熊), 2J・2H・0H(🦊狐)。<br>
+      ・<strong>勝利条件</strong>：①敵の<strong>熊（三匹）</strong>または<strong>狐（三匹以上）</strong>のいずれかを全滅させる ／ ②四つの<strong>🏯砦（0A・9J・4E・5F）</strong>のうち<strong>二箇所の砦</strong>に、自軍の<strong>狐と熊の両方</strong>を入城させて制圧する（入城後<strong>三刻＝3ターン無敵</strong>）。<br>
+      ・<strong>虎の威を借る狐</strong>：熊は周囲一マス（斜め含む）の狐を討ち取れますが、その狐の<strong>縦横二マス圏内（斜め除く）</strong>に味方の<strong>🐯虎</strong>が潜んでいる場合、逆に<strong>熊を返り討ち</strong>にします！<br>
+      ・<strong>熊の進化（覇熊）</strong>：一体の熊が敵の狐を累計<strong>二体</strong>討ち取ると<strong>「覇（覇熊）」へ進化</strong>し、敵の<strong>🐯虎に食べられなくなります</strong>！<br>
+      ・<strong>手番と増援</strong>：壱に「狐（二マス以内）」か「熊（一マス）」を動かし、弐に「虎（二マス以内）」を潜行。<strong>三刻ごと</strong>に敵の虎が見え、<strong>六刻ごと</strong>に本陣へ狐を一匹増援できます。
+    </div>
+  </div>
+
+<script>
+  const cols = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+  const fortKeys = ["0A", "9J", "4E", "5F"];
+  const p1SpawnCoords = ["9A", "8A", "8B", "8C", "7A", "7D"];
+  const p2SpawnCoords = ["0J", "1J", "1I", "1H", "2J", "2G"];
+
+  let board = [];
+  let currentPlayer = 1;
+  let roundCount = 1;
+  let phase = "minion";
+  let selected = null;
+  let validMoves = [];
+  let gameOver = false;
+  let lastBattleMessage = "";
+
+  let canSpawnFox = false;
+  let isSpawnMode = false;
+  let forts = {};
+
+  // オンライン通信管理用変数
+  let isOnline = false;
+  let myPlayerNumber = 1; // 1 = 紅軍（ホスト）, 2 = 藍軍（ゲスト）
+  let peer = null;
+  let conn = null;
+
+  // --- オンライン通信機能（PeerJS） ---
+  function generateShortCode() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let code = "KITSUNE-";
+    for (let i = 0; i < 4; i++) {
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return code;
+  }
+
+  function createOnlineRoom() {
+    if (peer) peer.destroy();
+    const roomId = generateShortCode();
+    document.getElementById("host-room-area").style.display = "block";
+    document.getElementById("my-room-id").value = "接続準備中...";
+    document.getElementById("host-status").textContent = "サーバーへ登録しています...";
+
+    peer = new Peer(roomId);
+
+    peer.on("open", (id) => {
+      document.getElementById("my-room-id").value = id;
+      document.getElementById("host-status").textContent = "⏳ 対戦相手がこの合言葉を入力して参加するのを待っています...";
+    });
+
+    peer.on("connection", (connection) => {
+      conn = connection;
+      isOnline = true;
+      myPlayerNumber = 1;
+      setupConnectionHandlers();
+
+      conn.on("open", () => {
+        initBoard();
+        resetStateVariables();
+        document.getElementById("title-overlay").style.display = "none";
+        document.getElementById("mode-indicator").textContent = `🌐 オンライン対戦中（部屋: ${roomId}）`;
+        document.getElementById("my-role-indicator").textContent = "あなたは【🔴 紅軍（先攻）】です";
+        syncStateToOpponent();
+        renderBoard();
+      });
+    });
+
+    peer.on("error", (err) => {
+      document.getElementById("host-status").textContent = "⚠️ 通信エラーが発生しました。もう一度お試しください。";
+    });
+  }
+
+  function copyRoomId() {
+    const input = document.getElementById("my-room-id");
+    input.select();
+    navigator.clipboard.writeText(input.value);
+    document.getElementById("host-status").textContent = "✅ 合言葉をコピーしました！相手に送ってください。";
+  }
+
+  function joinOnlineRoom() {
+    const targetId = document.getElementById("join-room-id").value.trim().toUpperCase();
+    if (!targetId) {
+      document.getElementById("join-status").textContent = "⚠️ 合言葉を入力してください。";
+      return;
+    }
+
+    if (peer) peer.destroy();
+    document.getElementById("join-status").textContent = "⏳ 部屋に接続しています...";
+
+    peer = new Peer();
+    peer.on("open", () => {
+      conn = peer.connect(targetId, { reliable: true });
+      isOnline = true;
+      myPlayerNumber = 2;
+      setupConnectionHandlers();
+
+      conn.on("open", () => {
+        document.getElementById("title-overlay").style.display = "none";
+        document.getElementById("mode-indicator").textContent = `🌐 オンライン対戦中（部屋: ${targetId}）`;
+        document.getElementById("my-role-indicator").textContent = "あなたは【🔵 藍軍（後攻）】です";
+        document.getElementById("message").textContent = "紅軍（相手）の初手を待っています...";
+        renderBoard();
+      });
+    });
+
+    peer.on("error", () => {
+      document.getElementById("join-status").textContent = "⚠️ 部屋が見つかりませんでした。合言葉を確認してください。";
+    });
+  }
+
+  function setupConnectionHandlers() {
+    conn.on("data", (data) => {
+      if (data.type === "SYNC_STATE") {
+        board = data.board;
+        forts = data.forts;
+        currentPlayer = data.currentPlayer;
+        roundCount = data.roundCount;
+        phase = data.phase;
+        gameOver = data.gameOver;
+        lastBattleMessage = data.lastBattleMessage;
+        canSpawnFox = data.canSpawnFox;
+        selected = null;
+        validMoves = [];
+        isSpawnMode = false;
+
+        if (gameOver) {
+          document.getElementById("message").textContent = data.finalMessage || "対局終了！";
+        } else if (currentPlayer === myPlayerNumber) {
+          document.getElementById("message").textContent = canSpawnFox
+            ? "🦊 あなたの番です！援軍の狐を配置するか、駒を進軍させてください"
+            : "あなたの番です！進軍させる「狐（二マス）」または「熊（一マス）」を選んでください";
+        } else {
+          document.getElementById("message").textContent = "⏳ 相手が思考・操作中です...";
+        }
+        renderBoard();
+      } else if (data.type === "RESET_REQUEST") {
+        initBoard();
+        resetStateVariables();
+        renderBoard();
+      }
+    });
+
+    conn.on("close", () => {
+      alert("対戦相手との通信が切断されました。");
+    });
+  }
+
+  function syncStateToOpponent(finalMessage = "") {
+    if (!isOnline || !conn || !conn.open) return;
+    conn.send({
+      type: "SYNC_STATE",
+      board,
+      forts,
+      currentPlayer,
+      roundCount,
+      phase,
+      gameOver,
+      lastBattleMessage,
+      canSpawnFox,
+      finalMessage
+    });
+  }
+
+  function startLocalGame() {
+    isOnline = false;
+    document.getElementById("title-overlay").style.display = "none";
+    document.getElementById("mode-indicator").textContent = "👥 同一端末・二人対戦モード";
+    document.getElementById("my-role-indicator").textContent = "交互に操作してください";
+    initBoard();
+    resetStateVariables();
+    renderBoard();
+  }
+
+  function getFortKey(r, c) {
+    if (r === 0 && c === 0) return "0A";
+    if (r === 9 && c === 9) return "9J";
+    if (r === 4 && c === 4) return "4E";
+    if (r === 5 && c === 5) return "5F";
+    return null;
+  }
+
+  function coordToRC(coord) {
+    return {
+      r: parseInt(coord[0], 10),
+      c: cols.indexOf(coord[1])
+    };
+  }
+
+  function placePiece(coord, player, type) {
+    const { r, c } = coordToRC(coord);
+    const piece = { player, type };
+    if (type === "bear") {
+      piece.foxKills = 0;
+      piece.evolved = false;
+    }
+    board[r][c] = piece;
+  }
+
+  function initBoard() {
+    board = Array.from({ length: 10 }, () => Array(10).fill(null));
+
+    forts = {
+      "0A": { player: null, hasFox: false, hasBear: false, bearData: null, invincibleTurns: 0 },
+      "9J": { player: null, hasFox: false, hasBear: false, bearData: null, invincibleTurns: 0 },
+      "4E": { player: null, hasFox: false, hasBear: false, bearData: null, invincibleTurns: 0 },
+      "5F": { player: null, hasFox: false, hasBear: false, bearData: null, invincibleTurns: 0 }
+    };
+
+    // 紅軍（Player 1）：8Bに虎、4A・9F・6Dに熊、7A・7C・9Cに狐
+    placePiece("8B", 1, "tiger");
+    placePiece("4A", 1, "bear");
+    placePiece("9F", 1, "bear");
+    placePiece("6D", 1, "bear");
+    placePiece("7A", 1, "fox");
+    placePiece("7C", 1, "fox");
+    placePiece("9C", 1, "fox");
+
+    // 藍軍（Player 2・点対称）：1Iに虎、5J・0E・3Gに熊、2J・2H・0Hに狐
+    placePiece("1I", 2, "tiger");
+    placePiece("5J", 2, "bear");
+    placePiece("0E", 2, "bear");
+    placePiece("3G", 2, "bear");
+    placePiece("2J", 2, "fox");
+    placePiece("2H", 2, "fox");
+    placePiece("0H", 2, "fox");
+  }
+
+  function resetStateVariables() {
+    currentPlayer = 1;
+    roundCount = 1;
+    phase = "minion";
+    selected = null;
+    validMoves = [];
+    gameOver = false;
+    lastBattleMessage = "";
+    canSpawnFox = false;
+    isSpawnMode = false;
+    document.getElementById("stay-btn").style.display = "none";
+    document.getElementById("spawn-btn").style.display = "none";
+    document.getElementById("message").textContent = (isOnline && myPlayerNumber === 2)
+      ? "⏳ 紅軍（相手）の初手を待っています..."
+      : "進軍させる「狐（二マス）」または「熊（一マス）」を選んでください";
+  }
+
+  function getAvailableSpawnCells(player) {
+    const coords = player === 1 ? p1SpawnCoords : p2SpawnCoords;
+    const cells = [];
+    for (const coord of coords) {
+      const { r, c } = coordToRC(coord);
+      if (board[r][c] === null && !getFortKey(r, c)) {
+        cells.push({ r, c });
+      }
+    }
+    return cells;
+  }
+
+  function isFoxBuffed(r, c, player) {
+    const p = board[r][c];
+    if (!p || p.player !== player || p.type !== "fox") return false;
+
+    const orthoDirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    for (const [dr, dc] of orthoDirs) {
+      for (let step = 1; step <= 2; step++) {
+        const nr = r + dr * step;
+        const nc = c + dc * step;
+        if (nr >= 0 && nr < 10 && nc >= 0 && nc < 10) {
+          const target = board[nr][nc];
+          if (target && target.player === player && target.type === "tiger") {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  function canMoveInto(attacker, nr, nc) {
+    const target = board[nr][nc];
+    const fortKey = getFortKey(nr, nc);
+
+    if (fortKey) {
+      if (attacker.type === "tiger") return false;
+      const fort = forts[fortKey];
+      if (fort.player !== null && fort.player !== attacker.player && fort.invincibleTurns > 0) {
+        return false;
+      }
+      if (fort.player === attacker.player) {
+        if (attacker.type === "fox" && fort.hasFox) return false;
+        if (attacker.type === "bear" && fort.hasBear) return false;
+      }
+      return true;
+    }
+
+    if (!target) return true;
+    if (attacker.player === target.player) return false;
+
+    if (attacker.type === "tiger" && target.type === "bear" && target.evolved) {
+      return false;
+    }
+
+    if (attacker.type === "tiger") return true;
+    if (target.type === "tiger") return true;
+    if (attacker.type === target.type) return true;
+
+    return false;
+  }
+
+  function getValidMoves(r, c) {
+    const moves = [];
+    const attacker = board[r][c];
+    if (!attacker) return moves;
+
+    const maxSteps = (attacker.type === "fox" || attacker.type === "tiger") ? 2 : 1;
+    const directions = [
+      [-1, -1], [-1, 0], [-1, 1],
+      [0, -1],           [0, 1],
+      [1, -1],  [1, 0],  [1, 1]
+    ];
+
+    for (const [dr, dc] of directions) {
+      for (let step = 1; step <= maxSteps; step++) {
+        const nr = r + dr * step;
+        const nc = c + dc * step;
+        if (nr < 0 || nr >= 10 || nc < 0 || nc >= 10) break;
+
+        const target = board[nr][nc];
+        const fortKey = getFortKey(nr, nc);
+
+        if (fortKey) {
+          if (canMoveInto(attacker, nr, nc)) {
+            moves.push({ r: nr, c: nc });
+          }
+          break;
+        } else if (!target) {
+          moves.push({ r: nr, c: nc });
+        } else {
+          if (canMoveInto(attacker, nr, nc)) {
+            moves.push({ r: nr, c: nc });
+          }
+          break;
+        }
+      }
+    }
+    return moves;
+  }
+
+  function resolveBearAuraBattle(bearR, bearC) {
+    const bear = board[bearR][bearC];
+    if (!bear || bear.type !== "bear") return "";
+
+    const enemyPlayer = bear.player === 1 ? 2 : 1;
+    const adjacentFoxes = [];
+
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const nr = bearR + dr;
+        const nc = bearC + dc;
+        if (nr >= 0 && nr < 10 && nc >= 0 && nc < 10) {
+          const target = board[nr][nc];
+          if (target && target.player === enemyPlayer && target.type === "fox") {
+            adjacentFoxes.push({ r: nr, c: nc });
+          }
+        }
+      }
+    }
+
+    if (adjacentFoxes.length === 0) return "";
+
+    const countered = adjacentFoxes.some(fox => isFoxBuffed(fox.r, fox.c, enemyPlayer));
+    const bearTeam = bear.player === 1 ? "紅軍" : "藍軍";
+    const foxTeam = enemyPlayer === 1 ? "紅軍" : "藍軍";
+
+    if (countered) {
+      board[bearR][bearC] = null;
+      return `⚡ 【狐假虎威発動！】${foxTeam}の狐の縦横二マスに虎が潜んでいたため、${bearTeam}の熊は畏れをなして討ち取られました！`;
+    } else {
+      const defeatedCoords = [];
+      for (const fox of adjacentFoxes) {
+        board[fox.r][fox.c] = null;
+        defeatedCoords.push(`${fox.r}${cols[fox.c]}`);
+      }
+
+      const wasEvolved = bear.evolved;
+      bear.foxKills = (bear.foxKills || 0) + adjacentFoxes.length;
+      let evolutionText = "";
+      if (!wasEvolved && bear.foxKills >= 2) {
+        bear.evolved = true;
+        evolutionText = ` 🔥 【進化覚醒！】狐を二体喰らい「覇熊」へと進化！以降、敵の虎に食べられなくなりました！`;
+      }
+
+      return `💥 ${bearTeam}の熊が周囲一マスに迫り、${foxTeam}の狐（${defeatedCoords.join(", ")}）を討ち取りました！${evolutionText}`;
+    }
+  }
+
+  function findMyTiger() {
+    for (let r = 0; r < 10; r++) {
+      for (let c = 0; c < 10; c++) {
+        const p = board[r][c];
+        if (p && p.player === currentPlayer && p.type === "tiger") {
+          return { r, c };
+        }
+      }
+    }
+    return null;
+  }
+
+  function isMyTurn() {
+    if (!isOnline) return true;
+    return currentPlayer === myPlayerNumber;
+  }
+
+  function toggleSpawnMode() {
+    if (gameOver || !canSpawnFox || !isMyTurn()) return;
+    isSpawnMode = !isSpawnMode;
+    selected = null;
+    validMoves = [];
+
+    if (isSpawnMode) {
+      const areaText = currentPlayer === 1 ? "9A, 8A, 8B, 8C, 7A, 7D" : "0J, 1J, 1I, 1H, 2J, 2G";
+      document.getElementById("message").textContent = `水色枠の空き地（${areaText}）を選んで援軍の狐を配置してください`;
+    } else {
+      document.getElementById("message").textContent = phase === "minion"
+        ? "進軍させる「狐（二マス）」または「熊（一マス）」を選んでください"
+        : "続けて、自軍の「虎（二マス以内）」を潜行させてください";
+      if (phase === "tiger") {
+        startTigerPhase();
+        return;
+      }
+    }
+    renderBoard();
+  }
+
+  function startTigerPhase() {
+    phase = "tiger";
+    isSpawnMode = false;
+    const tigerPos = findMyTiger();
+    if (tigerPos) {
+      selected = tigerPos;
+      validMoves = getValidMoves(tigerPos.r, tigerPos.c);
+      document.getElementById("phase-info").textContent = "弐：🐯 虎を潜行（二マス以内）";
+      document.getElementById("message").textContent = "続けて、自軍の「虎（二マス以内）」を動かしてください";
+      document.getElementById("stay-btn").style.display = "inline-block";
+    } else {
+      endTurn();
+    }
+    renderBoard();
+    if (isOnline) syncStateToOpponent();
+  }
+
+  function skipTigerMove() {
+    if (gameOver || phase !== "tiger" || !isMyTurn()) return;
+    selected = null;
+    validMoves = [];
+    isSpawnMode = false;
+    document.getElementById("stay-btn").style.display = "none";
+    endTurn();
+  }
+
+  function checkVictory() {
+    for (const targetPlayer of [1, 2]) {
+      const capturedForts = [];
+      for (const key of fortKeys) {
+        const f = forts[key];
+        if (f.player === targetPlayer && f.hasFox && f.hasBear) {
+          capturedForts.push(key);
+        }
+      }
+      if (capturedForts.length >= 2) {
+        gameOver = true;
+        document.getElementById("stay-btn").style.display = "none";
+        document.getElementById("spawn-btn").style.display = "none";
+        const team = targetPlayer === 1 ? "紅軍（プレイヤー1）" : "藍軍（プレイヤー2）";
+        const winMsg = `🏆 【勝敗決着】${team}が二箇所の砦（${capturedForts.join("・")}）を制圧し、見事勝利！`;
+        document.getElementById("message").textContent = winMsg;
+        renderBoard();
+        if (isOnline) syncStateToOpponent(winMsg);
+        return true;
+      }
+    }
+
+    for (const targetPlayer of [1, 2]) {
+      let foxAlive = 0;
+      let bearAlive = 0;
+
+      for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 10; c++) {
+          const p = board[r][c];
+          if (p && p.player === targetPlayer) {
+            if (p.type === "fox") foxAlive++;
+            if (p.type === "bear") bearAlive++;
+          }
+        }
+      }
+
+      for (const key of fortKeys) {
+        const f = forts[key];
+        if (f.player === targetPlayer) {
+          if (f.hasFox) foxAlive++;
+          if (f.hasBear) bearAlive++;
+        }
+      }
+
+      const winnerTeam = targetPlayer === 1 ? "藍軍（プレイヤー2）" : "紅軍（プレイヤー1）";
+      const loserTeam = targetPlayer === 1 ? "紅軍" : "藍軍";
+      if (foxAlive === 0) {
+        gameOver = true;
+        document.getElementById("stay-btn").style.display = "none";
+        document.getElementById("spawn-btn").style.display = "none";
+        const winMsg = `🏆 【勝敗決着】${winnerTeam}が${loserTeam}の狐をすべて討ち取り勝利！`;
+        document.getElementById("message").textContent = winMsg;
+        renderBoard();
+        if (isOnline) syncStateToOpponent(winMsg);
+        return true;
+      }
+      if (bearAlive === 0) {
+        gameOver = true;
+        document.getElementById("stay-btn").style.display = "none";
+        document.getElementById("spawn-btn").style.display = "none";
+        const winMsg = `🏆 【勝敗決着】${winnerTeam}が${loserTeam}の熊をすべて討ち取り勝利！`;
+        document.getElementById("message").textContent = winMsg;
+        renderBoard();
+        if (isOnline) syncStateToOpponent(winMsg);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function endTurn() {
+    if (checkVictory()) return;
+
+    for (const key of fortKeys) {
+      if (forts[key].invincibleTurns > 0) {
+        forts[key].invincibleTurns--;
+      }
+    }
+
+    if (currentPlayer === 1) {
+      currentPlayer = 2;
+    } else {
+      currentPlayer = 1;
+      roundCount++;
+    }
+
+    phase = "minion";
+    selected = null;
+    validMoves = [];
+    isSpawnMode = false;
+    document.getElementById("stay-btn").style.display = "none";
+
+    if (roundCount % 6 === 0 && getAvailableSpawnCells(currentPlayer).length > 0) {
+      canSpawnFox = true;
+    } else {
+      canSpawnFox = false;
+    }
+
+    renderBoard();
+
+    if (isOnline) {
+      document.getElementById("message").textContent = "⏳ 相手の手番です。操作を待っています...";
+      syncStateToOpponent();
+    } else {
+      const nextTeam = currentPlayer === 1 ? "紅軍（プレイヤー1）" : "藍軍（プレイヤー2）";
+      document.getElementById("overlay-title").textContent = `${nextTeam} の手番（第${roundCount}刻）`;
+      document.getElementById("overlay-sub").textContent = lastBattleMessage !== ""
+        ? `【直前の戦況】${lastBattleMessage}`
+        : "相手に見えぬよう陣を交代し、準備が整ったら盤面を開いてください。";
+      document.getElementById("switch-overlay").style.display = "flex";
+      document.getElementById("message").textContent = canSpawnFox
+        ? "🦊 援軍の狐を配置するか、進軍させる「狐（二マス）」「熊（一マス）」を選んでください"
+        : "進軍させる「狐（二マス）」または「熊（一マス）」を選んでください";
+    }
+  }
+
+  function updateFortUI() {
+    for (const key of fortKeys) {
+      const f = forts[key];
+      const boxEl = document.getElementById(`fort-box-${key}`);
+      const statusEl = document.getElementById(`fort-${key}-status`);
+      const shieldEl = document.getElementById(`fort-${key}-shield`);
+
+      boxEl.classList.remove("captured-p1", "captured-p2");
+
+      if (f.player === null) {
+        statusEl.textContent = "無主（狐＋熊で制圧）";
+        shieldEl.textContent = "";
+      } else {
+        const team = f.player === 1 ? "紅軍" : "藍軍";
+        const isCaptured = f.hasFox && f.hasBear;
+        if (isCaptured) {
+          boxEl.classList.add(f.player === 1 ? "captured-p1" : "captured-p2");
+          statusEl.textContent = `🚩 ${team}制圧完了（狐＋熊）`;
+        } else {
+          const units = [];
+          if (f.hasFox) units.push("🦊狐");
+          if (f.hasBear) units.push(f.bearData && f.bearData.evolved ? "👑覇熊" : "🐻熊");
+          statusEl.textContent = `${team}駐留：${units.join(" ＋ ")}`;
+        }
+        shieldEl.textContent = f.invincibleTurns > 0 ? `🛡️護${f.invincibleTurns}刻` : "⚠️護解除";
+      }
+    }
+  }
+
+  function createTokenElement(player, pieceOrLabel, isFortToken = false) {
+    const token = document.createElement("div");
+    let isTiger = false;
+    let isEvolved = false;
+    let labelText = "";
+
+    if (isFortToken) {
+      labelText = pieceOrLabel;
+    } else {
+      isTiger = pieceOrLabel.type === "tiger";
+      isEvolved = pieceOrLabel.type === "bear" && pieceOrLabel.evolved;
+      if (isTiger) {
+        labelText = "虎";
+      } else if (pieceOrLabel.type === "fox") {
+        labelText = "狐";
+      } else {
+        labelText = isEvolved ? "覇" : "熊";
+      }
+    }
+
+    token.className = `token ${player === 1 ? "token-p1" : "token-p2"} ${isTiger ? "token-tiger" : ""} ${isEvolved ? "token-evolved" : ""}`;
+
+    const kanji = document.createElement("div");
+    kanji.className = "token-kanji";
+    if (isFortToken) {
+      kanji.style.fontSize = "12px";
+    }
+    kanji.textContent = labelText;
+
+    const sub = document.createElement("div");
+    sub.className = "token-sub";
+    sub.textContent = isEvolved ? "進化" : (player === 1 ? "紅" : "藍");
+
+    token.appendChild(kanji);
+    token.appendChild(sub);
+    return token;
+  }
+
+  function renderBoard() {
+    updateFortUI();
+
+    const grid = document.getElementById("grid");
+    grid.innerHTML = "";
+
+    grid.appendChild(createLabel(""));
+    for (let c = 0; c < 10; c++) {
+      grid.appendChild(createLabel(cols[c]));
+    }
+
+    // オンライン時は「自分の画面から見て相手側の虎」を隠す
+    const viewerPlayer = isOnline ? myPlayerNumber : currentPlayer;
+    const isRadarTurn = (roundCount % 3 === 0);
+
+    document.getElementById("radar-alert").style.display = (isRadarTurn && !gameOver) ? "block" : "none";
+    document.getElementById("spawn-alert").style.display = (canSpawnFox && isMyTurn() && !gameOver) ? "block" : "none";
+
+    const spawnBtn = document.getElementById("spawn-btn");
+    if (canSpawnFox && isMyTurn() && !gameOver) {
+      spawnBtn.style.display = "inline-block";
+      spawnBtn.textContent = isSpawnMode ? "✖ 配置を取りやめる" : "🦊 援軍の狐を配置する（残り一匹）";
+    } else {
+      spawnBtn.style.display = "none";
+    }
+
+    const stayBtn = document.getElementById("stay-btn");
+    if (phase === "tiger" && isMyTurn() && !gameOver) {
+      stayBtn.style.display = "inline-block";
+    } else {
+      stayBtn.style.display = "none";
+    }
+
+    const logEl = document.getElementById("battle-log");
+    if (lastBattleMessage !== "") {
+      logEl.style.display = "block";
+      logEl.textContent = lastBattleMessage;
+    } else {
+      logEl.style.display = "none";
+    }
+
+    const spawnCells = (isSpawnMode && isMyTurn()) ? getAvailableSpawnCells(currentPlayer) : [];
+
+    for (let r = 0; r < 10; r++) {
+      grid.appendChild(createLabel(r));
+
+      for (let c = 0; c < 10; c++) {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+
+        const fortKey = getFortKey(r, c);
+        if (fortKey) {
+          cell.classList.add("fort-cell");
+          const f = forts[fortKey];
+          if (f.invincibleTurns > 0) {
+            cell.classList.add("fort-invincible");
+          }
+
+          const fortLabel = document.createElement("div");
+          fortLabel.className = "fort-bg-label";
+          fortLabel.textContent = "砦";
+          cell.appendChild(fortLabel);
+
+          if (f.invincibleTurns > 0) {
+            const shield = document.createElement("div");
+            shield.className = "shield-badge";
+            shield.textContent = `護${f.invincibleTurns}`;
+            cell.appendChild(shield);
+          }
+
+          if (f.player !== null) {
+            const bearText = f.hasBear ? (f.bearData && f.bearData.evolved ? "覇" : "熊") : "";
+            const label = (f.hasFox ? "狐" : "") + bearText;
+            cell.appendChild(createTokenElement(f.player, label, true));
+          }
+        }
+
+        if (selected && selected.r === r && selected.c === c) {
+          cell.classList.add("selected");
+        }
+        if (validMoves.some(m => m.r === r && m.c === c)) {
+          cell.classList.add("movable");
+        }
+        if (spawnCells.some(s => s.r === r && s.c === c)) {
+          cell.classList.add("spawnable");
+        }
+
+        const p = board[r][c];
+        if (p && !fortKey) {
+          const isEnemyTiger = (p.type === "tiger" && p.player !== viewerPlayer);
+          const isHiddenTiger = (isEnemyTiger && !isRadarTurn && !gameOver);
+
+          if (!isHiddenTiger) {
+            if (isEnemyTiger && isRadarTurn && !gameOver) {
+              cell.classList.add("revealed-tiger");
+            }
+            if (p.type === "fox" && (p.player === viewerPlayer || gameOver) && isFoxBuffed(r, c, p.player)) {
+              cell.classList.add("buffed");
+            }
+            cell.appendChild(createTokenElement(p.player, p, false));
+
+            if (p.type === "bear" && p.foxKills > 0) {
+              const killBadge = document.createElement("div");
+              killBadge.className = "kill-badge";
+              killBadge.textContent = p.evolved ? "👑" : `${p.foxKills}/2`;
+              cell.appendChild(killBadge);
+            }
+          }
+        }
+
+        cell.onclick = () => onCellClick(r, c);
+        grid.appendChild(cell);
+      }
+    }
+
+    const badge = document.getElementById("turn-badge");
+    badge.textContent = currentPlayer === 1 ? "🔴 紅軍（プレイヤー1）" : "🔵 藍軍（プレイヤー2）";
+    badge.className = `turn-badge ${currentPlayer === 1 ? "p1-turn" : "p2-turn"}`;
+    document.getElementById("turn-counter").textContent = `第 ${roundCount} 刻`;
+    if (phase === "minion") {
+      document.getElementById("phase-info").textContent = "壱：狐 または 熊 を進軍";
+    } else {
+      document.getElementById("phase-info").textContent = "弐：🐯 虎を潜行（二マス以内）";
+    }
+  }
+
+  function createLabel(text) {
+    const div = document.createElement("div");
+    div.className = "label-cell";
+    div.textContent = text;
+    return div;
+  }
+
+  function onCellClick(r, c) {
+    if (gameOver) return;
+
+    if (!isMyTurn()) {
+      document.getElementById("message").textContent = "⏳ 現在は相手の手番です。相手の操作が完了するまでお待ちください。";
+      return;
+    }
+
+    if (isSpawnMode && canSpawnFox) {
+      const spawnCells = getAvailableSpawnCells(currentPlayer);
+      if (spawnCells.some(s => s.r === r && s.c === c)) {
+        board[r][c] = { player: currentPlayer, type: "fox" };
+        canSpawnFox = false;
+        isSpawnMode = false;
+        const team = currentPlayer === 1 ? "紅軍" : "藍軍";
+        lastBattleMessage = `🦊 ${team}が ${r}${cols[c]} に援軍の「狐」を布陣しました！`;
+        if (phase === "tiger") {
+          startTigerPhase();
+        } else {
+          document.getElementById("message").textContent = "布陣完了！進軍させる「狐（二マス）」または「熊（一マス）」を選んでください";
+          renderBoard();
+          if (isOnline) syncStateToOpponent();
+        }
+      } else {
+        document.getElementById("message").textContent = "⚠️ 水色枠の空き地にのみ布陣できます";
+      }
+      return;
+    }
+
+    const clickedPiece = board[r][c];
+
+    if (selected && validMoves.some(m => m.r === r && m.c === c)) {
+      const movingPiece = board[selected.r][selected.c];
+      const fortKey = getFortKey(r, c);
+      const team = movingPiece.player === 1 ? "紅軍" : "藍軍";
+
+      board[selected.r][selected.c] = null;
+      selected = null;
+      validMoves = [];
+      lastBattleMessage = "";
+
+      if (fortKey) {
+        const f = forts[fortKey];
+        if (f.player !== null && f.player !== movingPiece.player) {
+          const enemyTeam = f.player === 1 ? "紅軍" : "藍軍";
+          lastBattleMessage = `⚔️ ${team}が無敵解除中の砦（${fortKey}）へ突入し、${enemyTeam}の守備隊を駆逐して砦を奪取！（三刻無敵発動）`;
+          f.player = movingPiece.player;
+          f.hasFox = movingPiece.type === "fox";
+          f.hasBear = movingPiece.type === "bear";
+          f.bearData = movingPiece.type === "bear" ? movingPiece : null;
+          f.invincibleTurns = 3;
+        } else {
+          f.player = movingPiece.player;
+          if (movingPiece.type === "fox") f.hasFox = true;
+          if (movingPiece.type === "bear") {
+            f.hasBear = true;
+            f.bearData = movingPiece;
+          }
+          f.invincibleTurns = 3;
+          const unitName = movingPiece.type === "fox" ? "狐" : (movingPiece.evolved ? "覇熊" : "熊");
+          const capturedNow = (f.hasFox && f.hasBear) ? "【砦制圧達成！】" : "";
+          lastBattleMessage = `🏯 ${team}の「${unitName}」が砦（${fortKey}）に入城！（三刻無敵の護り発動）${capturedNow}`;
+        }
+      } else {
+        board[r][c] = movingPiece;
+        if (movingPiece.type === "bear") {
+          lastBattleMessage = resolveBearAuraBattle(r, c);
+        }
+      }
+
+      if (checkVictory()) return;
+
+      if (phase === "minion") {
+        startTigerPhase();
+      } else {
+        endTurn();
+      }
+      return;
+    }
+
+    if (phase === "minion") {
+      if (clickedPiece && clickedPiece.player === currentPlayer && clickedPiece.type !== "tiger") {
+        selected = { r, c };
+        validMoves = getValidMoves(r, c);
+        const posName = `${r}${cols[c]}`;
+        let typeName = "";
+        let statusNote = "";
+
+        if (clickedPiece.type === "fox") {
+          typeName = "狐（二マス）";
+          if (isFoxBuffed(r, c, currentPlayer)) {
+            statusNote = "【虎の威を借る状態！熊を返り討ちに可能】";
+          }
+        } else {
+          typeName = clickedPiece.evolved ? "👑覇熊（進化済・一マス）" : "熊（一マス）";
+          statusNote = clickedPiece.evolved
+            ? "【進化覚醒済：敵の虎に食べられません】"
+            : `【狐討伐数: ${clickedPiece.foxKills || 0}/2】`;
+        }
+
+        document.getElementById("message").textContent = `${posName} の「${typeName}」を選択中 ${statusNote}`;
+        renderBoard();
+      } else if (clickedPiece && clickedPiece.player === currentPlayer && clickedPiece.type === "tiger") {
+        document.getElementById("message").textContent = "⚠️ 先に「狐」か「熊」を一つ進軍させてください（虎はその後に動かせます）";
+      } else {
+        selected = null;
+        validMoves = [];
+        document.getElementById("message").textContent = "自軍の「狐」または「熊」を選んでください";
+        renderBoard();
+      }
+    }
+  }
+
+  function closeOverlay() {
+    document.getElementById("switch-overlay").style.display = "none";
+  }
+
+  function resetGame() {
+    initBoard();
+    resetStateVariables();
+    renderBoard();
+    if (isOnline && conn && conn.open) {
+      conn.send({ type: "RESET_REQUEST" });
+      syncStateToOpponent();
+    }
+  }
+
+  initBoard();
+  renderBoard();
+</script>
+</body>
+</html>
